@@ -110,7 +110,7 @@ contract FlowVoteManager is
     /// @dev May want to communicate to users that a deposit means 2 addresses
     ///         will be approved to manage nft
     ///         (even if there is only one approval on front end)
-    function deposit(uint256 _tokenId) external whenNotPaused {
+    function delegate(uint256 _tokenId) external whenNotPaused {
         if (tokenIdToStrat[_tokenId] != address(0)) {
             revert FlowVoteManager__WrongInput();
         }
@@ -122,13 +122,13 @@ contract FlowVoteManager is
         } else if (strategiesFull == true) {
             _deployStrategy();
         }
-        IFlowVoteFarmer(strategy).deposit(_tokenId, msg.sender);
+        IFlowVoteFarmer(strategy).delegate(_tokenId, msg.sender);
         tokenIdToStrat[_tokenId] = strategy;
     }
 
-    function withdraw(uint256 _tokenId) external {
+    function undelegate(uint256 _tokenId) external {
         address strategy = tokenIdToStrat[_tokenId];
-        IFlowVoteFarmer(strategy).withdraw(_tokenId, msg.sender);
+        IFlowVoteFarmer(strategy).undelegate(_tokenId, msg.sender);
         delete tokenIdToStrat[_tokenId];
     }
 

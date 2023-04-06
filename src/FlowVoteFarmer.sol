@@ -203,7 +203,7 @@ contract FlowVoteFarmer is
 
     /// @notice Allows a user to add his venft to this contract's managed nfts
     /// @dev The contract must be approved for the transfer first
-    function deposit(
+    function delegate(
         uint256 _tokenId,
         address _owner
     ) external whenNotPaused onlyRole(MANAGER) {
@@ -220,7 +220,7 @@ contract FlowVoteFarmer is
     }
 
     /// @notice Allows a user to withdraw his venfts from the managed venfts
-    function withdraw(
+    function undelegate(
         uint256 _withdrawTokenId,
         address _owner
     ) external onlyRole(MANAGER) {

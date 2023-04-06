@@ -93,10 +93,10 @@ interface IFlowVoteFarmer {
 
     /// @notice Allows a user to add his venft to this contract's managed nfts
     /// @dev The contract must be approved for the transfer first
-    function deposit(uint256 _tokenId, address _owner) external;
+    function delegate(uint256 _tokenId, address _owner) external;
 
     /// @notice Allows a user to withdraw his venfts from the managed venfts
-    function withdraw(uint256 _tokenId, address _owner) external;
+    function undelegate(uint256 _tokenId, address _owner) external;
 
     /// @notice Makes a venft eligible to have its lock duration extended by a week
     function autoLock(uint256 _tokenId, bool _enable, address _owner) external;
