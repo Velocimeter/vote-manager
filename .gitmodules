@@ -10,3 +10,6 @@
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
 	branch = v4.8.2
+[submodule "lib/foundry-upgrades"]
+	path = lib/foundry-upgrades
+	url = https://github.com/odyslam/foundry-upgrades
