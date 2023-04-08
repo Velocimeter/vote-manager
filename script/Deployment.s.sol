@@ -9,13 +9,8 @@ import {FlowVoteManager} from "../src/FlowVoteManager.sol";
 import {FlowVoteHelper} from "../src/FlowVoteHelper.sol";
 
 contract Deployment is Script {
-    // TODO: change address
-    address private constant COUNCIL =
-        0x06b16991B53632C2362267579AE7C4863c72fDb8;
     address private constant TEAM_MULTI_SIG =
         0x13eeB8EdfF60BbCcB24Ec7Dd5668aa246525Dc51;
-    address private constant GOVERNOR =
-        0x06b16991B53632C2362267579AE7C4863c72fDb8;
     address[] private STRATEGISTS = [
         0x06b16991B53632C2362267579AE7C4863c72fDb8
     ];
