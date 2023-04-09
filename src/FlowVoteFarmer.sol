@@ -10,6 +10,7 @@ import "./interfaces/IRewardsDistributor.sol";
 import "./interfaces/IRouter.sol";
 import "./interfaces/IPair.sol";
 import "./interfaces/IGauge.sol";
+import "./interfaces/IWrappedExternalBribeFactory.sol";
 import "openzeppelin-contracts-upgradeable/contracts/utils/structs/EnumerableSetUpgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "openzeppelin-contracts-upgradeable/contracts/access/AccessControlEnumerableUpgradeable.sol";
@@ -21,6 +22,7 @@ error FlowVoteFarmer__Unauthorized();
 error FlowVoteFarmer__WrongInput();
 error FlowVoteFarmer__VoteCooldown();
 error FlowVoteFarmer__TokenExpiresTooEarly();
+error FlowVoteFarmer__TokenTooSmall();
 error FlowVoteFarmer__OverNftCap();
 
 /// @dev Vote for VELOCIMETER pairs, get rewards and grow veFlow
@@ -50,7 +52,7 @@ contract FlowVoteFarmer is
         address(0x826551890Dc65655a0Aceca109aB11AbDbD7a07B);
     address public treasury;
     uint256 public constant PERCENT_DIVISOR = 10_000;
-    uint256 public constant MAX_FEE = 1000;
+    uint256 public constant MAX_FEE = 2000;
 
     /// @dev Distribution of fees earned, expressed as % of the profit from each harvest.
     /// {totalFee} - divided by 10,000 to determine the % fee.
@@ -70,6 +72,8 @@ contract FlowVoteFarmer is
     Harvest[] harvestLog;
 
     uint256 public constant EPOCH = 1 weeks; // Duration of an epoch
+    uint256 public constant MAX_TIME = 4 * 365 * 86400; // Max lock duration
+    uint256 public constant MIN_AMOUNT = 5 * 1e20;
     address public constant FLOW = 0xB5b060055F0d1eF5174329913ef861bC3aDdF029;
     address public constant VEFLOW = 0x8E003242406FBa53619769F31606ef2Ed8A65C00;
     IVoter public constant VELOCIMETER_VOTER =
@@ -78,6 +82,10 @@ contract FlowVoteFarmer is
         0x8e2e2f70B4bD86F82539187A634FB832398cc771;
     IRewardsDistributor public constant VELOCIMETER_REWARDS_DISTRIBUTOR =
         IRewardsDistributor(0x73278a66b75aC0714c4B049dFF26e5CddF365c85);
+    IWrappedExternalBribeFactory public constant VELOCIMETER_WEBF =
+        IWrappedExternalBribeFactory(
+            0xEA9E24a2979D4ACbdB4CCE6608F6C45F9c4421d7
+        );
 
     /// @dev Vote-related vars
     address[] public gauges;
@@ -208,6 +216,7 @@ contract FlowVoteFarmer is
         address _owner
     ) external whenNotPaused onlyRole(MANAGER) {
         _requireMinimumLockDuration(_tokenId);
+        _requireMinimumAmount(_tokenId);
         _requireOwnerOf(_tokenId, _owner);
         if (!IVotingEscrow(VEFLOW).isApprovedOrOwner(address(this), _tokenId)) {
             revert FlowVoteFarmer__Unauthorized();
@@ -215,6 +224,9 @@ contract FlowVoteFarmer is
         if (tokenIds.length >= nftCap) {
             revert FlowVoteFarmer__OverNftCap();
         }
+        // Claimable will revert should the NFT be "broken" following a merge
+        VELOCIMETER_REWARDS_DISTRIBUTOR.claimable(_tokenId);
+
         tokenIdToInfo[_tokenId].veNftIdx = tokenIds.length;
         tokenIds.push(_tokenId);
     }
@@ -350,9 +362,14 @@ contract FlowVoteFarmer is
     }
 
     function synchronize() external onlyRole(MANAGER) {
+        // Clean for new values
         delete gauges;
         delete pairs;
         delete weights;
+        // Loop until rewards is empty
+        for (uint256 i; i < rewards.length(); _uncheckedInc(i)) {
+            rewards.remove(rewards.at(0));
+        }
         // Set values
         treasury = manager.treasury();
         totalFee = manager.totalFee();
@@ -410,7 +427,9 @@ contract FlowVoteFarmer is
     function _claimFees(uint256 _tokenId) internal {
         /// Not having custody of the nfts means that we have to claim directly from the bribe contracts
         for (uint256 i; i < gauges.length; i = _uncheckedInc(i)) {
-            address eBribe = VELOCIMETER_VOTER.external_bribes(gauges[i]); //bribes
+            //swap fees
+            address oldEBribe = VELOCIMETER_VOTER.external_bribes(gauges[i]); //bribes
+            address eBribe = VELOCIMETER_WEBF.oldBribeToNew(oldEBribe); //bribes
 
             // Construct rewards for Internal Bribe, External Bribe
             uint256 eRewardsLen = IExternalBribe(eBribe).rewardsListLength();
@@ -441,7 +460,15 @@ contract FlowVoteFarmer is
 
     function _increaseDuration(uint256 _tokenId) internal {
         uint256 newUnlockTime = IVotingEscrow(VEFLOW).locked__end(_tokenId) +
-            EPOCH;
+            EPOCH -
+            block.timestamp;
+        if (
+            (((block.timestamp + newUnlockTime) / EPOCH) * EPOCH) >
+            block.timestamp + MAX_TIME
+        ) {
+            // If somehow it still exceeds the max lock, skip
+            return;
+        }
         IVotingEscrow(VEFLOW).increase_unlock_time(_tokenId, newUnlockTime);
     }
 
@@ -507,11 +534,14 @@ contract FlowVoteFarmer is
 
     function _removeRevokedNfts() internal {
         for (uint256 i; i < tokenIds.length; i = _uncheckedInc(i)) {
+            uint256 lockEnd = IVotingEscrow(VEFLOW).locked(tokenIds[i]).end;
             if (
-                !IVotingEscrow(VEFLOW).isApprovedOrOwner(
-                    address(this),
-                    tokenIds[i]
-                )
+                (
+                    !IVotingEscrow(VEFLOW).isApprovedOrOwner(
+                        address(this),
+                        tokenIds[i]
+                    )
+                ) || lockEnd < block.timestamp
             ) {
                 uint256 withdrawVeNftIdx = tokenIdToInfo[tokenIds[i]].veNftIdx;
                 uint256 lastTokenId = tokenIds[tokenIds.length - 1];
@@ -556,6 +586,14 @@ contract FlowVoteFarmer is
             block.timestamp + EPOCH
         ) {
             revert FlowVoteFarmer__TokenExpiresTooEarly();
+        }
+    }
+
+    function _requireMinimumAmount(uint256 _tokenId) internal view {
+        if (
+            uint128(IVotingEscrow(VEFLOW).locked(_tokenId).amount) < MIN_AMOUNT
+        ) {
+            revert FlowVoteFarmer__TokenTooSmall();
         }
     }
 

@@ -47,4 +47,6 @@ interface IVotingEscrow {
     function locked__end(uint256 _tokenId) external view returns (uint256);
     function balanceOfNFT(uint) external view returns (uint);
     function totalSupply() external view returns (uint);
+    function approve(address _approved, uint _tokenId) external;
+    function setApprovalForAll(address, bool) external;
 }
