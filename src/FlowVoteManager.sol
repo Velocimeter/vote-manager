@@ -116,11 +116,10 @@ contract FlowVoteManager is
         }
 
         (address strategy, bool strategiesFull) = selectDepositStrategy();
-        if (strategy == address(0)) {
+        if (strategy == address(0) || strategiesFull == true) {
             strategy = _deployStrategy();
-        } else if (strategiesFull == true) {
-            _deployStrategy();
         }
+
         IVotingEscrow(VEFLOW).approve(strategy, _tokenId);
         IFlowVoteFarmer(strategy).delegate(_tokenId, msg.sender);
         tokenIdToStrat[_tokenId] = strategy;
