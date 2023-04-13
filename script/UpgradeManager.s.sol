@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {TransparentUpgradeableProxy} from "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {FlowVoteManager} from "../src/FlowVoteManager.sol";
 
-contract Deployment is Script {
+contract UpgradeManager is Script {
     address payable private constant MANAGER =
         payable(0x5880f495cF0FAF6347354D8aCc41b49EDB51a9f7);
 
