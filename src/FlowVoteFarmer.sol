@@ -192,6 +192,10 @@ contract FlowVoteFarmer is
                 break;
             }
         }
+
+        if (numLogsProcessed == 0) {
+            return 0;
+        }
         return runningAPRSum / numLogsProcessed;
     }
 
