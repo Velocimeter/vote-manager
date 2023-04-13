@@ -116,7 +116,7 @@ contract FlowVoteManager is
         }
 
         (address strategy, bool strategiesFull) = selectDepositStrategy();
-        if (strategy == address(0) || strategiesFull == true) {
+        if (strategy == address(0) || strategiesFull) {
             strategy = _deployStrategy();
         }
 
