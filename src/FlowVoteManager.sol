@@ -386,7 +386,7 @@ contract FlowVoteManager is
                 stratsProcessed = _uncheckedInc(stratsProcessed);
             }
         }
-        yearly = yearly / stratsProcessed;
+        yearly = stratsProcessed == 0 ? 0 : yearly / stratsProcessed;
     }
 
     /* ========== PSEUDO MODIFIERS ========== */
