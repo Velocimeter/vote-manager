@@ -116,11 +116,11 @@ contract FlowVoteManager is
         }
 
         (address strategy, bool strategiesFull) = selectDepositStrategy();
-        if (strategy == address(0) || strategiesFull) {
+        if (strategy == address(0)) {
             strategy = _deployStrategy();
+        } else if (strategiesFull == true) {
+            _deployStrategy();
         }
-
-        IVotingEscrow(VEFLOW).approve(strategy, _tokenId);
         IFlowVoteFarmer(strategy).delegate(_tokenId, msg.sender);
         tokenIdToStrat[_tokenId] = strategy;
     }
@@ -154,16 +154,6 @@ contract FlowVoteManager is
         // Harvest
         for (uint256 i = start; i < end; i = _uncheckedInc(i)) {
             IFlowVoteFarmer(strategies.at(i)).harvest();
-        }
-    }
-
-    function increaseDurationAll(uint256 start, uint256 end) external {
-        _atLeastRole(KEEPER);
-        _verifySlice(start, end);
-
-        // Increase duration if auto lock is set
-        for (uint256 i = start; i < end; i = _uncheckedInc(i)) {
-            IFlowVoteFarmer(strategies.at(i)).increaseDurationAll();
         }
     }
 
